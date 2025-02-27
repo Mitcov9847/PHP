@@ -1,0 +1,53 @@
+body {
+    text-align: center;
+
+}
+
+h2 {
+    margin-top: 20px;
+}
+
+.loop-container {
+    border: 1px solid black;
+    width: 50%;
+    margin: 20px auto;
+    padding: 15px;
+}
+
+p {
+    margin: 5px 0;
+}
+
+.container_table {
+    display: flex;
+    justify-content: center;
+}
+
+.table_style {
+    height: 150px;
+    width: 450px;
+}
+
+.container_block {
+    display: flex;
+    margin-top: 20px;
+    flex-direction: column;
+    align-items: center;
+}
+
+.block_h3 {
+    width: 220px;
+    height: 150px;
+    margin-bottom: 15px;
+}
+
+.table-style {
+    width: 500px;
+    height: 150px;
+}
+
+.h2_block {
+    color: purple;
+    display: flex;
+    justify-content: center;
+}
