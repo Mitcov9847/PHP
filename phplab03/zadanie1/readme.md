@@ -94,6 +94,3 @@ usort($transactions, function ($a, $b) {
     return $b['amount'] <=> $a['amount'];
 });
 ```
-
-## Лицензия
-Этот проект распространяется под лицензией MIT.
