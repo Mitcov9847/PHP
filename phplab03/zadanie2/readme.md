@@ -155,4 +155,6 @@ foreach ($files as $file) {
 
 2. **Функциональность**:
    - Скрипт сканирует папку `image/` на наличие файлов с расширением `.jpg` и отображает их на странице в виде галереи.
+     
+![image](https://github.com/user-attachments/assets/f11fdec8-744c-4cbc-9670-f6adb3b98956)
 
