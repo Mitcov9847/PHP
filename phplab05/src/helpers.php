@@ -1,6 +1,19 @@
 <?php
-// Подключаем необходимые файлы
-require_once __DIR__ . '/../src/helpers.php';  // Подключаем файл с функцией render()
+function redirect(string $url): void {
+    header("Location: $url");
+    exit;
+}
 
-// Подключение к базе данных (если нужно)
-require_once __DIR__ . '/../src/db.php';
+function safe(?string $text): string {
+    return htmlspecialchars($text ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+function generateCsrfToken(): string {
+    $token = bin2hex(random_bytes(32));
+    $_SESSION['csrf_token'] = $token;
+    return $token;
+}
+
+function verifyCsrfToken(string $token): bool {
+    return isset($_SESSION['csrf_token']) && $token === $_SESSION['csrf_token'];
+}
