@@ -947,4 +947,4 @@ SQL-инъекция — это метод атаки на веб-приложе
 
 1. [PHP Manual](https://www.php.net/manual/ru/)
 2. [Описание XAMPP](https://www.apachefriends.org/ru/index.html)
-3 [Документация по SQL и MySQL](https://dev.mysql.com/doc/)
+3. [Документация по SQL и MySQL](https://dev.mysql.com/doc/)
