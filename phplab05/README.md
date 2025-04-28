@@ -784,23 +784,20 @@ if (isset($_GET['id'])) {
 
 **`src/handlers/recipe/show.php`**
 
-```<?php
+```
+<?php
 require_once __DIR__ . '/../../db.php';
 
-/**
- * Получаем PDO для работы с базой данных.
+/** Получаем PDO для работы с базой данных.
  */
 $pdo = getPDO();
 
-/**
- * Получаем ID рецепта из URL (GET параметра).
+/** Получаем ID рецепта из URL (GET параметра).
  */
 $recipeId = $_GET['id'] ?? null;
 
 if ($recipeId) {
-    /**
-     * Запрос для получения рецепта по ID, с добавлением имени категории.
-     */
+    /*Запрос для получения рецепта по ID, с добавлением имени категории. */
     $stmt = $pdo->prepare('SELECT r.*, c.name AS category_name FROM recipes r 
                            JOIN categories c ON r.category = c.id WHERE r.id = :id');
     $stmt->execute(['id' => $recipeId]);
@@ -814,9 +811,7 @@ if ($recipeId) {
     die('ID рецепта не задан.');
 }
 
-/**
- * Подключаем шаблон для отображения рецепта.
- */
+/* Подключаем шаблон для отображения рецепта.*/
 require_once __DIR__ . '/../../../templates/recipe/show.php';
 
 ```
@@ -910,66 +905,27 @@ $stmt->execute([$id]);
 Даже если пользователь передаст `1 OR 1=1`, всё будет трактоваться как строка, а не SQL-команда.
 PDO автоматически экранирует значения, и SQL-инъекция становится невозможной.
 
-### Задание 5. Дополнительное задание: Пагинация
-
-**`Пример кода (`из public/index.php`):`**
-
-```php
-$perPage = 5;
-$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$offset = ($page - 1) * $perPage;
-
-$totalRecipes = $pdo->query("SELECT COUNT(*) FROM recipes")->fetchColumn();
-$totalPages = ceil($totalRecipes / $perPage);
-
-$stmt = $pdo->prepare("
-    SELECT r.*, c.name AS category_name
-    FROM recipes r
-    JOIN categories c ON r.category = c.id
-    ORDER BY r.created_at DESC
-    LIMIT :limit OFFSET :offset
-");
-
-$stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-$stmt->execute();
-
-$recipes = $stmt->fetchAll();
-```
-
-**Вывод пагинации (`в templates/index.php`)**
-
-```php
-<nav class="pagination">
-    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-        <?php if ($i === $page): ?>
-            <strong>[<?= $i ?>]</strong>
-        <?php else: ?>
-            <a href="/index.php?page=<?= $i ?>">[<?= $i ?>]</a>
-        <?php endif; ?>
-    <?php endfor; ?>
-</nav>
-```
-
-- Пагинация позволяет делить список рецептов на части — по 5 рецептов на страницу. Это улучшает производительность и удобство.
-В SQL-запрос добавляется `LIMIT` и `OFFSET`, которые позволяют получать нужный фрагмент записей. Количество страниц (`$totalPages`) рассчитывается на основе общего числа записей.
-На странице выводятся ссылки на каждую страницу, а текущая страница отображается жирным шрифтом.
 
 ## Результат
 
-Главная страница(с пагинацией)
+Главная страница
 
-![image](https://i.imgur.com/5kuxeGh.png)
+![image](https://github.com/user-attachments/assets/97093700-46cf-4203-9a17-afabd4313272)
 
 Добавление рецепта
 
-![image](https://i.imgur.com/r9aW3VA.png)
+![image](https://github.com/user-attachments/assets/e487f34c-e423-4bd6-b0f6-23b50c48c22e)
 
-![image](https://i.imgur.com/NfEjCrj.png)
+![image](https://github.com/user-attachments/assets/f330b7d2-d2a7-41a6-8174-ffd85e4c3ea1)
 
-Ошибки если валидация не пройдена
+Все рецепты
+![image](https://github.com/user-attachments/assets/da2199b0-dc73-423a-8bed-dcac1ab79b3f)
 
-![image](https://i.imgur.com/DUyig9u.png)
+Кнопки редактирования и удаления рецепта
+![image](https://github.com/user-attachments/assets/2a0da971-c1fe-449a-bf7f-9e84eac0ff0e)
+
+Форма редактирования рецепта
+![image](https://github.com/user-attachments/assets/37cb3e80-0d9e-4391-b6c2-5472952b804c)
 
 ## Ответы на вопросы
 
@@ -1013,7 +969,5 @@ $stmt->execute([$id]);
 ## Библиография
 
 1. [PHP Manual](https://www.php.net/manual/ru/)
-2. [Работа с PDO](https://www.php.net/manual/ru/book.pdo.php)
-3. [Описание XAMPP](https://www.apachefriends.org/ru/index.html)
-4. [Документация по SQL и MySQL](https://dev.mysql.com/doc/)
-5. [Шаблонизация в PHP](https://www.php.net/manual/ru/language.basic-syntax.phpmode.php)
+2. [Описание XAMPP](https://www.apachefriends.org/ru/index.html)
+3 [Документация по SQL и MySQL](https://dev.mysql.com/doc/)
