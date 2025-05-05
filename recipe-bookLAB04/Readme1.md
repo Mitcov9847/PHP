@@ -401,11 +401,14 @@ unset($_SESSION['errors'], $_SESSION['old']);
     });
 </script>
 
-**`recipe/index.php`**
+**`recipe/create.php`**
 
 Файл create.php — интерфейс для добавления нового рецепта. Использует сессию для отображения ошибок ($_SESSION['errors']) и старых данных ($_SESSION['old']), очищая их после использования. HTML-форма отправляет POST-запрос на /handlers/save_recipe.php с полями: title (текст), category (выбор из Супы/Салаты/Десерты), ingredients и description (текстовые области), tags (множественный выбор: Веган/Безглютеновый и др.), steps (массив текстовых полей). Ошибки валидации отображаются под полями. CSS-стили оформляют форму, JavaScript добавляет новые поля для шагов по клику на кнопку. Данные экранируются через htmlspecialchars для безопасности.
 ```
+```
 
+**`recipe/index.php`**
+```
 <?php
 /**
  * @file index.php
@@ -507,127 +510,7 @@ $currentRecipes = array_slice($recipes, $offset, $perPage);
 
 Файл index.php отображает список всех рецептов из storage/recipes.txt с постраничной навигацией. PHP-логика читает файл, декодирует JSON-строки в объекты, переворачивает порядок (новые первыми). Пагинация: GET-параметр page определяет текущую страницу (мин. 1), по 5 рецептов на страницу, вычисляются общее число страниц и смещение. HTML с CSS выводит рецепты (title, category, ingredients, description, steps, tags, created_at), экранируя данные через htmlspecialchars и форматируя переносы (nl2br). Если рецептов нет, показывается сообщение. Пагинация включает ссылки "Назад", номера страниц и "Вперёд". Ссылка ведёт на главную (/index.php).
 
-
 ```
-
-- Это основной шаблон для страниц проекта, который включает в себя общую структуру сайта и вставляет динамический контент.
-
-- **Шапка (`header`)**:
-  - Заголовок страницы: `Проект Recipe Book`.
-  - Ссылка на главную страницу.
-
-- **Основной контент (`main`)**:
-  - Выводит динамический контент, переданный через переменную `$content`.
-
-- **Подвал (`footer`)**:
-  - Текущий год и права: `&copy; 2025 USM book`.
-
-**`templates/index.php (фрагмент)`**
-
-```php
-/**
- * Шаблон вывода всех рецептов с пагинацией.
- *
- * @var array $recipes Массив рецептов
- * @global int $page Текущая страница
- * @global int $totalPages Общее количество страниц
- */
-
-<?php foreach ($recipes as $recipe): ?>
-    <li>
-        <strong><?= htmlspecialchars($recipe['title']) ?></strong><br>
-        Категория: <?= htmlspecialchars($recipe['category_name']) ?><br>
-        Добавлен: <?= $recipe['created_at'] ?><br>
-
-        <div class="actions">
-            <a class="details-button" href="/public/recipe/show.php?id=<?= $recipe['id'] ?>">Подробнее</a>
-
-            <form method="POST" action="/public/recipe/delete.php" class="inline-form" onsubmit="return confirm('Удалить рецепт?');">
-                <input type="hidden" name="id" value="<?= $recipe['id'] ?>">
-                <button class="delete-button" type="submit">Удалить</button>
-            </form>
-        </div>
-    </li>
-<?php endforeach; ?>
-```
-
-- Этот шаблон выводит список всех рецептов, полученных из базы данных. Каждая запись выводится в виде карточки с заголовком, категорией и датой добавления. Для каждого рецепта реализованы две основные функции:
-
-  - Кнопка "Подробнее" открывает страницу `show.php`, где отображаются все детали рецепта;
-
-  - Кнопка "Удалить" реализована как HTML-форма с методом `POST`, что соответствует REST-принципам безопасности. Кнопка дополнительно защищена `confirm()` - проверкой, чтобы избежать случайного удаления.
-
-Кроме того, все поля проходят обработку через `htmlspecialchars()` для защиты от XSS-атак. Этот шаблон — часть MVC-архитектуры и отвечает за представление (View).
-
-**`templates/recipe/create.php (фрагмент)`**
-
-```<?php
-$title = 'Добавить рецепт'; // Устанавливаем заголовок страницы
-
-ob_start(); // Начинаем буферизацию вывода
-
-?>
-
-<h2>Добавить рецепт</h2>
-
-<form action="/recipe-book/public/?page=create" method="post">
-    <!-- Форма для добавления рецепта -->
-    
-    <div>
-        <label for="title">Название рецепта:</label><br>
-        <!-- Поле для ввода названия рецепта -->
-        <input type="text" id="title" name="title" required>
-    </div>
-
-    <div>
-        <label for="category">Категория:</label><br>
-        <!-- Выпадающий список для выбора категории -->
-        <select id="category" name="category" required>
-            <option value="">-- Выберите категорию --</option>
-            <?php foreach ($categories as $cat): ?>
-                <!-- Перебираем категории и выводим их в список -->
-                <option value="<?= htmlspecialchars($cat['id']) ?>">
-                    <?= htmlspecialchars($cat['name']) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-    </div>
-
-    <div>
-        <label for="ingredients">Ингредиенты:</label><br>
-        <!-- Текстовое поле для ввода ингредиентов -->
-        <textarea id="ingredients" name="ingredients" rows="4"></textarea>
-    </div>
-
-    <div>
-        <label for="description">Описание:</label><br>
-        <!-- Текстовое поле для описания рецепта -->
-        <textarea id="description" name="description" rows="4"></textarea>
-    </div>
-
-    <div>
-        <label for="tags">Теги (через запятую):</label><br>
-        <!-- Поле для ввода тегов -->
-        <input type="text" id="tags" name="tags">
-    </div>
-
-    <div>
-        <label for="steps">Шаги приготовления:</label><br>
-        <!-- Текстовое поле для описания шагов приготовления -->
-        <textarea id="steps" name="steps" rows="6"></textarea>
-    </div>
-
-    <br>
-    <button type="submit">Сохранить</button> <!-- Кнопка для отправки формы -->
-</form>
-
-<?php
-$content = ob_get_clean(); // Завершаем буферизацию вывода и сохраняем содержимое
-require __DIR__ . '/../layout.php'; // Подключаем общий шаблон для страницы
-
-```
-- Этот файл представляет форму для добавления нового рецепта.
-
 
 ## Ответы на контрольные вопросы
 
