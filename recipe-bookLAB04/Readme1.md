@@ -89,6 +89,546 @@
 - 
 ![image](https://github.com/user-attachments/assets/b286ad05-58c6-46b5-b5ea-ab5fdaee0083)
 ---
+
+Функциональность
+Получение параметра page:
+Берет $_GET['page'] или устанавливает 'index' по умолчанию.
+Маршрутизация:
+Через switch подключает файлы:
+create: src/handlers/recipe/create.php — создание рецепта.
+show: src/handlers/recipe/show.php — просмотр рецепта.
+edit: src/handlers/recipe/edit.php — редактирование рецепта.
+delete: src/handlers/recipe/delete.php — удаление рецепта.
+default: templates/index.php — главная страница.
+Модульность:
+Использует require_once, разделяя логику и представление.
+
+**`public/index.php`**
+
+```php
+<?php
+/**
+ * @file index.php
+ * @description Главная страница с последними рецептами.
+ */
+
+$filepath = __DIR__ . '/../storage/recipes.txt';
+$recipes = [];
+
+if (file_exists($filepath)) {
+    $lines = file($filepath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $recipes = array_reverse(array_map('json_decode', $lines));
+    $latest = array_slice($recipes, 0, 2);
+} else {
+    $latest = [];
+}
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Каталог рецептов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
+        h1 {
+            margin-bottom: 1rem;
+        }
+        .recipe {
+            border-bottom: 1px solid #ccc;
+            padding: 1rem 0;
+        }
+        .recipe h3 {
+            margin: 0.2em 0;
+        }
+        .recipe p {
+            margin: 0.3em 0;
+        }
+        .links {
+            margin-top: 2rem;
+        }
+        .links a {
+            display: inline-block;
+            margin-right: 1rem;
+            text-decoration: none;
+            color: #0077cc;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Последние рецепты</h1>
+
+<?php if (empty($latest)): ?>
+    <p>Пока нет рецептов.</p>
+<?php else: ?>
+    <?php foreach ($latest as $recipe): ?>
+        <div class="recipe">
+            <h3><?= htmlspecialchars($recipe->title) ?></h3>
+            <p><strong>Категория:</strong> <?= htmlspecialchars($recipe->category) ?></p>
+            <p><strong>Описание:</strong><br><?= nl2br(htmlspecialchars($recipe->description)) ?></p>
+        </div>
+    <?php endforeach; ?>
+<?php endif; ?>
+
+<div class="links">
+    <a href="/recipe/create.php">➕ Добавить новый рецепт</a>
+    <a href="/recipe/index.php">📋 Все рецепты</a>
+</div>
+
+```
+index.php — главная страница, показывает два последних рецепта из storage/recipes.txt (JSON-объекты с title, category, description). PHP читает файл, декодирует строки, переворачивает порядок, берет первые два. HTML с CSS выводит рецепты, экранируя данные (htmlspecialchars, nl2br). Если рецептов нет — "Пока нет рецептов". Ссылки: /recipe/create.php (добавить) и /recipe/index.php (все рецепты). Простой код, улучшаемый проверкой JSON или кэшированием.
+
+**`src/helpers.php`**
+
+```<?php
+/**
+ * @file helpers.php
+ * @brief Утилиты для работы с рецептами: фильтрация и проверка данных формы.
+ *
+ * Включает:
+ * - cleanInput() — удаляет лишние символы из строки
+ * - checkRecipeForm() — проводит базовую валидацию формы рецепта
+ *
+ * Используется в: save_recipe.php
+ */
+
+/**
+ * Приводит входную строку к безопасному виду
+ *
+ * @param string $input
+ * @return string
+ */
+function cleanInput(string $input): string {
+    return htmlspecialchars(trim(strip_tags($input)));
+}
+
+/**
+ * Проверяет корректность данных рецепта
+ *
+ * @param array $form
+ * @return array список найденных ошибок
+ */
+function checkRecipeForm(array $form): array {
+    $issues = [];
+
+    $requiredFields = [
+        'title' => 'Укажите название рецепта',
+        'category' => 'Категория обязательна',
+        'ingredients' => 'Перечислите ингредиенты',
+        'description' => 'Добавьте описание',
+    ];
+
+    foreach ($requiredFields as $field => $message) {
+        if (empty($form[$field])) {
+            $issues[$field] = $message;
+        }
+    }
+
+    if (!isset($form['steps']) || !is_array($form['steps']) || count(array_filter($form['steps'])) === 0) {
+        $issues['steps'] = 'Требуется хотя бы один шаг приготовления';
+    }
+
+    return $issues;
+}
+
+Файл helpers.php содержит утилиты для работы с рецептами. Функция cleanInput очищает строку, удаляя теги (strip_tags), пробелы (trim) и экранируя символы (htmlspecialchars) для защиты от XSS. Функция checkRecipeForm валидирует данные формы рецепта, проверяя обязательные поля (title, category, ingredients, description) и наличие хотя бы одного шага (steps) в массиве. Возвращает массив ошибок, если поля пусты или шаги отсутствуют. Используется в save_recipe.php для безопасной обработки данных.
+```
+
+**`handlers/save_recipe.php`**
+
+```<?php
+/**
+ * @file save_recipe.php
+ * @brief Обработчик формы добавления рецепта.
+ *
+ * Получает данные из формы (POST), выполняет:
+ * - фильтрацию и очистку данных;
+ * - валидацию обязательных полей;
+ * - сохранение валидных данных в файл storage/recipes.txt в формате JSON;
+ * - сохранение ошибок и возврат на форму при неудаче;
+ * - перенаправление на главную при успехе.
+ *
+ * Использует:
+ * - cleanInput() и checkRecipeForm() из helpers.php
+ * - session для передачи ошибок и старых значений
+ */
+
+ob_start(); 
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+session_start();
+
+require_once __DIR__ . '/../../src/helpers.php';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Очистка данных
+    $title = cleanInput($_POST['title'] ?? '');
+    $category = cleanInput($_POST['category'] ?? '');
+    $ingredients = cleanInput($_POST['ingredients'] ?? '');
+    $description = cleanInput($_POST['description'] ?? '');
+    $tags = $_POST['tags'] ?? [];
+
+    // Обработка шагов
+    $stepsRaw = $_POST['steps'] ?? [];
+    $steps = array_filter(array_map('cleanInput', $stepsRaw));
+
+    // Сбор всех данных
+    $formData = [
+        'title' => $title,
+        'category' => $category,
+        'ingredients' => $ingredients,
+        'description' => $description,
+        'tags' => $tags,
+        'steps' => $steps,
+        'created_at' => date('Y-m-d H:i:s')
+    ];
+
+    // Валидация
+    $errors = checkRecipeForm($formData);
+
+    if (!empty($errors)) {
+        $_SESSION['errors'] = $errors;
+        $_SESSION['old'] = $_POST;
+        header('Location: ../../public/recipe/create.php');
+        exit;
+    }
+
+    // Сохранение в файл
+    $line = json_encode($formData, JSON_UNESCAPED_UNICODE) . PHP_EOL;
+    file_put_contents(__DIR__ . '/../../storage/recipes.txt', $line, FILE_APPEND);
+
+    header('Location: ../../public/index.php');
+    exit;
+}
+
+Файл save_recipe.php обрабатывает POST-данные формы добавления рецепта. Включает helpers.php для использования cleanInput и checkRecipeForm. Очищает поля (title, category, ingredients, description, steps) через cleanInput, фильтрует шаги, собирает данные в массив с тегами и датой создания. Валидирует форму через checkRecipeForm. Если есть ошибки, сохраняет их и старые данные в сессию, перенаправляя на create.php. При успехе записывает данные в recipes.txt как JSON-строку и перенаправляет на главную (index.php). Использует ob_start и сессии для управления выводом и ошибками.
+```
+
+**`recipe/create.php`**
+
+<?php
+/**
+ * @file create.php
+ * @description Интерфейс добавления нового рецепта в приложение.
+ *
+ * Использует сессию для передачи ошибок и сохранения данных пользователя при ошибке.
+ */
+session_start();
+
+$formErrors = $_SESSION['errors'] ?? [];
+$formData = $_SESSION['old'] ?? [];
+
+unset($_SESSION['errors'], $_SESSION['old']);
+
+?>
+
+<form action="/handlers/save_recipe.php" method="post">
+    <div class="form-group">
+        <label for="title">Название рецепта:</label>
+        <input type="text" id="title" name="title" value="<?= htmlspecialchars($formData['title'] ?? '') ?>" placeholder="Например, Блины с творогом">
+        <?php if (!empty($formErrors['title'])): ?>
+            <div class="error-message"><?= $formErrors['title'] ?></div>
+        <?php endif; ?>
+    </div>
+
+    <div class="form-group">
+        <label for="category">Категория:</label>
+        <select id="category" name="category">
+            <option value="">-- Выберите категорию --</option>
+            <?php foreach (['Супы', 'Салаты', 'Десерты'] as $option): ?>
+                <option value="<?= $option ?>" <?= ($formData['category'] ?? '') === $option ? 'selected' : '' ?>>
+                    <?= $option ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <?php if (!empty($formErrors['category'])): ?>
+            <div class="error-message"><?= $formErrors['category'] ?></div>
+        <?php endif; ?>
+    </div>
+
+    <div class="form-group">
+        <label for="ingredients">Ингредиенты:</label>
+        <textarea id="ingredients" name="ingredients" rows="4" placeholder="Список ингредиентов через запятую"><?= htmlspecialchars($formData['ingredients'] ?? '') ?></textarea>
+        <?php if (!empty($formErrors['ingredients'])): ?>
+            <div class="error-message"><?= $formErrors['ingredients'] ?></div>
+        <?php endif; ?>
+    </div>
+
+    <div class="form-group">
+        <label for="description">Описание:</label>
+        <textarea id="description" name="description" rows="3" placeholder="Краткое описание рецепта"><?= htmlspecialchars($formData['description'] ?? '') ?></textarea>
+        <?php if (!empty($formErrors['description'])): ?>
+            <div class="error-message"><?= $formErrors['description'] ?></div>
+        <?php endif; ?>
+    </div>
+
+    <div class="form-group">
+        <label for="tags">Теги:</label>
+        <select name="tags[]" id="tags" multiple size="4">
+            <?php foreach (['Веган', 'Безглютеновый', 'Праздничный', 'Быстрый'] as $tag): ?>
+                <option value="<?= $tag ?>" <?= in_array($tag, $formData['tags'] ?? []) ? 'selected' : '' ?>><?= $tag ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Шаги приготовления:</label>
+        <div id="steps-wrapper">
+            <?php foreach ($formData['steps'] ?? [''] as $instruction): ?>
+                <input type="text" name="steps[]" value="<?= htmlspecialchars($instruction) ?>" placeholder="Опишите шаг..." required>
+            <?php endforeach; ?>
+        </div>
+        <?php if (!empty($formErrors['steps'])): ?>
+            <div class="error-message"><?= $formErrors['steps'] ?></div>
+        <?php endif; ?>
+        <button type="button" id="add-step-btn">+ Добавить шаг</button>
+    </div>
+
+    <button type="submit">Сохранить рецепт</button>
+</form>
+
+<script>
+    // Позволяет добавлять дополнительные шаги в форму
+    document.getElementById('add-step-btn').addEventListener('click', () => {
+        const stepField = document.createElement('input');
+        stepField.type = 'text';
+        stepField.name = 'steps[]';
+        stepField.placeholder = 'Опишите шаг...';
+        stepField.required = true;
+        document.getElementById('steps-wrapper').appendChild(stepField);
+    });
+</script>
+
+**`recipe/index.php`**
+
+Файл create.php — интерфейс для добавления нового рецепта. Использует сессию для отображения ошибок ($_SESSION['errors']) и старых данных ($_SESSION['old']), очищая их после использования. HTML-форма отправляет POST-запрос на /handlers/save_recipe.php с полями: title (текст), category (выбор из Супы/Салаты/Десерты), ingredients и description (текстовые области), tags (множественный выбор: Веган/Безглютеновый и др.), steps (массив текстовых полей). Ошибки валидации отображаются под полями. CSS-стили оформляют форму, JavaScript добавляет новые поля для шагов по клику на кнопку. Данные экранируются через htmlspecialchars для безопасности.
+```
+
+<?php
+/**
+ * @file index.php
+ * @description Страница со списком рецептов и постраничной навигацией.
+ */
+
+$filepath = __DIR__ . '/../../storage/recipes.txt';
+$recipes = [];
+
+if (file_exists($filepath)) {
+    $lines = file($filepath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $recipes = array_reverse(array_map('json_decode', $lines));
+}
+
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$perPage = 5;
+$total = count($recipes);
+$totalPages = ceil($total / $perPage);
+$offset = ($page - 1) * $perPage;
+$currentRecipes = array_slice($recipes, $offset, $perPage);
+?>
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Список рецептов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
+        .recipe {
+            border-bottom: 1px solid #ccc;
+            padding: 1rem 0;
+        }
+        .recipe h3 {
+            margin: 0.2em 0;
+        }
+        .recipe p, .recipe ol {
+            margin: 0.3em 0;
+        }
+        .pagination a, .pagination strong {
+            margin: 0 5px;
+            text-decoration: none;
+        }
+        .pagination {
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Рецепты (страница <?= $page ?>)</h1>
+
+<?php if (empty($currentRecipes)): ?>
+    <p>На этой странице рецептов нет.</p>
+<?php else: ?>
+    <?php foreach ($currentRecipes as $recipe): ?>
+        <div class="recipe">
+            <h3><?= htmlspecialchars($recipe->title) ?></h3>
+            <p><strong>Категория:</strong> <?= htmlspecialchars($recipe->category) ?></p>
+            <p><strong>Ингредиенты:</strong><br><?= nl2br(htmlspecialchars($recipe->ingredients)) ?></p>
+            <p><strong>Описание:</strong><br><?= nl2br(htmlspecialchars($recipe->description)) ?></p>
+            <p><strong>Шаги приготовления:</strong></p>
+            <ol>
+                <?php foreach ($recipe->steps as $step): ?>
+                    <li><?= htmlspecialchars($step) ?></li>
+                <?php endforeach; ?>
+            </ol>
+            <?php if (!empty($recipe->tags)): ?>
+                <p><strong>Теги:</strong> <?= implode(', ', array_map('htmlspecialchars', $recipe->tags)) ?></p>
+            <?php endif; ?>
+            <p><em>Добавлено: <?= htmlspecialchars($recipe->created_at) ?></em></p>
+        </div>
+    <?php endforeach; ?>
+<?php endif; ?>
+
+<!-- Навигация по страницам -->
+<div class="pagination">
+    <?php if ($page > 1): ?>
+        <a href="?page=<?= $page - 1 ?>">&laquo; Назад</a>
+    <?php endif; ?>
+
+    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+        <?php if ($i === $page): ?>
+            <strong>[<?= $i ?>]</strong>
+        <?php else: ?>
+            <a href="?page=<?= $i ?>"><?= $i ?></a>
+        <?php endif; ?>
+    <?php endfor; ?>
+
+    <?php if ($page < $totalPages): ?>
+        <a href="?page=<?= $page + 1 ?>">Вперёд &raquo;</a>
+    <?php endif; ?>
+</div>
+
+<p><a href="/index.php">На главную</a></p>
+
+Файл index.php отображает список всех рецептов из storage/recipes.txt с постраничной навигацией. PHP-логика читает файл, декодирует JSON-строки в объекты, переворачивает порядок (новые первыми). Пагинация: GET-параметр page определяет текущую страницу (мин. 1), по 5 рецептов на страницу, вычисляются общее число страниц и смещение. HTML с CSS выводит рецепты (title, category, ingredients, description, steps, tags, created_at), экранируя данные через htmlspecialchars и форматируя переносы (nl2br). Если рецептов нет, показывается сообщение. Пагинация включает ссылки "Назад", номера страниц и "Вперёд". Ссылка ведёт на главную (/index.php).
+
+
+```
+
+- Это основной шаблон для страниц проекта, который включает в себя общую структуру сайта и вставляет динамический контент.
+
+- **Шапка (`header`)**:
+  - Заголовок страницы: `Проект Recipe Book`.
+  - Ссылка на главную страницу.
+
+- **Основной контент (`main`)**:
+  - Выводит динамический контент, переданный через переменную `$content`.
+
+- **Подвал (`footer`)**:
+  - Текущий год и права: `&copy; 2025 USM book`.
+
+**`templates/index.php (фрагмент)`**
+
+```php
+/**
+ * Шаблон вывода всех рецептов с пагинацией.
+ *
+ * @var array $recipes Массив рецептов
+ * @global int $page Текущая страница
+ * @global int $totalPages Общее количество страниц
+ */
+
+<?php foreach ($recipes as $recipe): ?>
+    <li>
+        <strong><?= htmlspecialchars($recipe['title']) ?></strong><br>
+        Категория: <?= htmlspecialchars($recipe['category_name']) ?><br>
+        Добавлен: <?= $recipe['created_at'] ?><br>
+
+        <div class="actions">
+            <a class="details-button" href="/public/recipe/show.php?id=<?= $recipe['id'] ?>">Подробнее</a>
+
+            <form method="POST" action="/public/recipe/delete.php" class="inline-form" onsubmit="return confirm('Удалить рецепт?');">
+                <input type="hidden" name="id" value="<?= $recipe['id'] ?>">
+                <button class="delete-button" type="submit">Удалить</button>
+            </form>
+        </div>
+    </li>
+<?php endforeach; ?>
+```
+
+- Этот шаблон выводит список всех рецептов, полученных из базы данных. Каждая запись выводится в виде карточки с заголовком, категорией и датой добавления. Для каждого рецепта реализованы две основные функции:
+
+  - Кнопка "Подробнее" открывает страницу `show.php`, где отображаются все детали рецепта;
+
+  - Кнопка "Удалить" реализована как HTML-форма с методом `POST`, что соответствует REST-принципам безопасности. Кнопка дополнительно защищена `confirm()` - проверкой, чтобы избежать случайного удаления.
+
+Кроме того, все поля проходят обработку через `htmlspecialchars()` для защиты от XSS-атак. Этот шаблон — часть MVC-архитектуры и отвечает за представление (View).
+
+**`templates/recipe/create.php (фрагмент)`**
+
+```<?php
+$title = 'Добавить рецепт'; // Устанавливаем заголовок страницы
+
+ob_start(); // Начинаем буферизацию вывода
+
+?>
+
+<h2>Добавить рецепт</h2>
+
+<form action="/recipe-book/public/?page=create" method="post">
+    <!-- Форма для добавления рецепта -->
+    
+    <div>
+        <label for="title">Название рецепта:</label><br>
+        <!-- Поле для ввода названия рецепта -->
+        <input type="text" id="title" name="title" required>
+    </div>
+
+    <div>
+        <label for="category">Категория:</label><br>
+        <!-- Выпадающий список для выбора категории -->
+        <select id="category" name="category" required>
+            <option value="">-- Выберите категорию --</option>
+            <?php foreach ($categories as $cat): ?>
+                <!-- Перебираем категории и выводим их в список -->
+                <option value="<?= htmlspecialchars($cat['id']) ?>">
+                    <?= htmlspecialchars($cat['name']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+
+    <div>
+        <label for="ingredients">Ингредиенты:</label><br>
+        <!-- Текстовое поле для ввода ингредиентов -->
+        <textarea id="ingredients" name="ingredients" rows="4"></textarea>
+    </div>
+
+    <div>
+        <label for="description">Описание:</label><br>
+        <!-- Текстовое поле для описания рецепта -->
+        <textarea id="description" name="description" rows="4"></textarea>
+    </div>
+
+    <div>
+        <label for="tags">Теги (через запятую):</label><br>
+        <!-- Поле для ввода тегов -->
+        <input type="text" id="tags" name="tags">
+    </div>
+
+    <div>
+        <label for="steps">Шаги приготовления:</label><br>
+        <!-- Текстовое поле для описания шагов приготовления -->
+        <textarea id="steps" name="steps" rows="6"></textarea>
+    </div>
+
+    <br>
+    <button type="submit">Сохранить</button> <!-- Кнопка для отправки формы -->
+</form>
+
+<?php
+$content = ob_get_clean(); // Завершаем буферизацию вывода и сохраняем содержимое
+require __DIR__ . '/../layout.php'; // Подключаем общий шаблон для страницы
+
+```
+- Этот файл представляет форму для добавления нового рецепта.
+
+
 ## Ответы на контрольные вопросы
 
 ### Какие методы HTTP применяются для отправки данных формы?
