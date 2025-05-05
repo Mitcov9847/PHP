@@ -389,6 +389,7 @@ unset($_SESSION['errors'], $_SESSION['old']);
     <button type="submit">Сохранить рецепт</button>
 </form>
 
+```
 document.getElementById('add-step-btn').addEventListener('click', () => {
     const stepField = document.createElement('input');
     stepField.type = 'text';
@@ -397,13 +398,12 @@ document.getElementById('add-step-btn').addEventListener('click', () => {
     stepField.required = true;
     document.getElementById('steps-wrapper').appendChild(stepField);
 });
+```
 
 Этот JavaScript-код добавляет динамическое поле для ввода шагов приготовления в форму на странице create.php. При клике на кнопку с id="add-step-btn" создаётся новый текстовый <input> с именем steps[] (для отправки массива шагов), плейсхолдером "Опишите шаг..." и атрибутом required. Поле добавляется в контейнер с id="steps-wrapper".
 
 Файл create.php — интерфейс для добавления нового рецепта. Использует сессию для отображения ошибок ($_SESSION['errors']) и старых данных ($_SESSION['old']), очищая их после использования. HTML-форма отправляет POST-запрос на /handlers/save_recipe.php с полями: title (текст), category (выбор из Супы/Салаты/Десерты), ingredients и description (текстовые области), tags (множественный выбор: Веган/Безглютеновый и др.), steps (массив текстовых полей). Ошибки валидации отображаются под полями. CSS-стили оформляют форму, JavaScript добавляет новые поля для шагов по клику на кнопку. Данные экранируются через htmlspecialchars для безопасности.
 
-```
-```
 **`recipe/index.php`**
 ```
 <?php
