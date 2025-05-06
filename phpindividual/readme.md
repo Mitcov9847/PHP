@@ -74,7 +74,6 @@ phpindividual/
 │   ├── public.php
 │   └── register.php
 ├── src/
-│   ├── cart_functions.php
 │   ├── db_connection.php
 │   └── generate_hash.php
 ├── uploads/
