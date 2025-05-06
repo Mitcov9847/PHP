@@ -126,6 +126,8 @@ CREATE TABLE `cart` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 ```
+**Объяснение:**
+Этот код создает таблицу cart для хранения корзины пользователя.
 
 #### Таблица `orders`
 
@@ -164,6 +166,8 @@ CREATE TABLE `plays` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 ```
+**Объяснение:**
+Этот код создает таблицу plays для хранения информации о играх.
 
 #### Таблица `roles`
 
