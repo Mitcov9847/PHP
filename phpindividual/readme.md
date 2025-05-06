@@ -350,11 +350,12 @@ if (isset($_POST['delete_game'])) {
         $stmt->close();
     }
 }
+```
 
 ![image](https://github.com/user-attachments/assets/3dfb29ea-082e-43ef-ad80-137e58b4a40b)
 
 ![image](https://github.com/user-attachments/assets/1bc51a00-ced4-4b04-82ca-6c34440df3c4)
-```
+
 Файл **admin_panel.php** реализует административный интерфейс для управления играми. Ключевые моменты функциональности:
 
 - **Проверка прав доступа:**  
