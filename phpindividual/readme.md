@@ -18,14 +18,14 @@
 
 ---
 
-## 🔐 Основной функционал
+## Основной функционал
 - Аутентификация
 - Регистрация
 - Вход в систему
 - Хэширование паролей
 - Защита сессий
 
-## 📂 Открытый доступ
+## Открытый доступ
 
 - Просмотр списка игр
 - Информация о каждой игре (цена, описание и др.)
@@ -85,120 +85,98 @@ phpindividual/
 
 ## Документация коду
 
-Описание функций и методов оформлено в стиле PHPDoc
-Понятные и описательные имена переменных
-Читаемый и структурированный код без избыточных комментариев
+- Описание функций и методов оформлено в стиле PHPDoc
+- Понятные и описательные имена переменных
+- Читаемый и структурированный код без избыточных комментариев
 
 ### Структура базы данных
 
-#### Для данного проекта была создана база данных `repair_system`, структура которой описана в SQL-скрипте `sql/init.sql`. Этот файл содержит команды создания всех необходимых таблиц и связей между ними
+#### Для данного проекта была создана база данных `games`. Этот файл содержит команды создания всех необходимых таблиц и связей между ними
 
 ![image](https://i.imgur.com/fok6PMk.png)
 
 #### Таблица `users`
 
 ```sql
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    role ENUM('user', 'admin') DEFAULT 'user'
-);
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL,
+  `username` varchar(50) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role_id` int(11) NOT NULL DEFAULT 2
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 ```
-
-![image](https://i.imgur.com/fAGTLoM.png)
+![image](https://github.com/user-attachments/assets/0af61e36-7b2f-4c14-918c-470419659e79)
 
 **Объяснение:**
 Содержит данные зарегистрированных пользователей: `логин`, `email`, `пароль` (в хешированном виде), а также роль пользователя (`user` или `admin`).
 
 - `username` — имя пользователя, уникальное.
-
 - `email` — email-адрес, также уникальный.
-
 - `password` — хэш пароля.
-
 - `role` — роль в системе (пользователь или администратор).
 
-#### Таблица `categories`
+#### Таблица `cart`
 
 ```sql
-CREATE TABLE categories (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description TEXT
-);
+CREATE TABLE `cart` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `game_id` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 ```
 
-![image](https://i.imgur.com/jdndbe3.png)
-
-**Объяснение:**
-Список доступных категорий (услуг). Используется пользователями при создании заявки.
-
-- `name` — название услуги.
-
-- `description` — описание услуги.
-
-#### Таблица `devices`
+#### Таблица `orders`
 
 ```sql
-CREATE TABLE devices (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL
-);
+CREATE TABLE `orders` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `surname` varchar(255) NOT NULL,
+  `phone_number` varchar(20) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `payment_method` varchar(50) NOT NULL,
+  `total_price` decimal(10,2) NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 ```
 
-![image](https://i.imgur.com/hsZ11q4.png)
-
 **Объяснение:**
-Содержит список возможных типов устройств (например, ноутбук, телефон и т.д.).
 
-- `name` — название устройства (например, ноутбук, телефон).
+- ENGINE=InnoDB — это "движок", который обеспечивает надежное хранение данных и возможность отмены изменений.
+- DEFAULT CHARSET=utf8mb4 — это настройка, позволяющая хранить текст на разных языках, включая эмодзи.
+- COLLATE=utf8mb4_general_ci — правило, которое говорит, что буквы разных регистров (например, "а" и "А") считаются одинаковыми при сравнении.
 
-#### Таблица `time_slots`
+#### Таблица `plays`
 
 ```sql
-CREATE TABLE time_slots (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    slot_time DATETIME NOT NULL,
-    is_booked BOOLEAN DEFAULT 0
-);
+CREATE TABLE `plays` (
+  `id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `genre` varchar(100) DEFAULT NULL,
+  `price` decimal(10,2) DEFAULT NULL,
+  `image_path` varchar(255) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `video_url` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 ```
 
-![image](https://i.imgur.com/mm1Lm1C.png)
-
-**Объяснение:**
-Хранит доступные слоты времени для записи на ремонт. Администратор может добавлять слоты, и каждый слот может быть помечен как занятый.
-
-- `slot_time` — дата и время записи.
-
-- `is_booked` — статус (занят/свободен).
-
-#### Таблица `requests`
+#### Таблица `roles`
 
 ```sql
-CREATE TABLE requests (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    category_id INT NOT NULL,
-    device_id INT NOT NULL,
-    problem_description TEXT NOT NULL,
-    urgency ENUM('низкая', 'средняя', 'высокая') NOT NULL,
-    time_slot_id INT NOT NULL,
-    status ENUM('ожидание', 'подтверждено', 'отклонено') DEFAULT 'ожидание',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+CREATE TABLE `roles` (
+  `role_id` int(11) NOT NULL,
+  `role_name` varchar(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (category_id) REFERENCES categories(id),
-    FOREIGN KEY (device_id) REFERENCES devices(id),
-    FOREIGN KEY (time_slot_id) REFERENCES time_slots(id)
-);
 ```
 
-![image](https://i.imgur.com/keMPjmG.png)
-
 **Объяснение:**
-Основная таблица, где хранится информация о заявках пользователей. Каждая заявка связана с пользователем, категорией, устройством и выбранным временем. Также фиксируется срочность, статус обработки и дата создания.
+Этот код создает таблицу roles для хранения ролей пользователей (например, "admin", "user").
 
 ### Структура проекта
 
